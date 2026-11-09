@@ -1,0 +1,217 @@
+%\VignetteIndexEntry{Using gpim}
+%\VignetteKeyword{survival}
+%\VignetteKeyword{regression}
+%\VignetteEncoding{UTF-8}
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{Sweave}
+\usepackage{graphicx}
+\title{Using \texttt{gpim}}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+<<setup,include=FALSE>>=
+library(gpim)
+options(width = 72)
+@
+
+\section{Data and endpoint order}
+
+The package fits probabilistic index regression for prioritized survival
+outcomes using the censoring adjustments of Cao, Fang, and Li~\cite{Cao2026}. Each subject contributes one terminal record and a separate record
+for each observed nonfatal event. Code 0 denotes censoring, code 1 denotes
+death, and codes 2, 3, and higher denote nonfatal outcomes in decreasing
+priority. Baseline covariates are repeated consistently within a subject.
+Follow-up continues after a nonfatal event.
+
+The two supplied data sets, \texttt{hfaction} and \texttt{hierarchy}, are
+synthetic. Neither contains original clinical participant records.
+The \texttt{hfaction} data contain death and first hospitalization, with time
+measured in years. The \texttt{hierarchy} data contain three endpoint priorities.
+
+<<data,results=hide>>=
+data(hfaction)
+data(hierarchy)
+@
+
+The comparison begins with restricted death times. The next endpoint is
+considered only after all higher priorities have been established as tied.
+An unresolved comparison caused by censoring is distinct from a genuine tie.
+The default order is increasing positive status code. An explicit
+\texttt{priorities} vector must start with 1 and include every observed
+positive code. Later event times are favorable.
+
+Each nonfatal endpoint is time to its first event. With repeated records of
+one type, \texttt{recurrent = "first"} uses the earliest occurrence and warns.
+The option \texttt{recurrent = "error"} rejects repeated records.
+Covariates must be constant within subject. Missing required values cause
+an error by default. Setting \texttt{na.action = "na.omit"} removes the
+whole subject.
+
+\section{Fitting}
+
+The formula uses differences between subject model-matrix rows. A free
+intercept therefore cancels. Factors, transformations, and interactions
+follow the usual R formula conventions.
+
+<<fit>>=
+fit <- gpim(
+  HierSurv(time, status) ~
+    treatment + I(age / 10) + sex + I(lvef / 5),
+  data = hfaction,
+  id = "id",
+  censor_formula = ~ treatment + I(age / 10) + sex,
+  method = c("CH", "HT", "DL"),
+  link = "logit"
+)
+@
+
+The age coefficient refers to a ten-year increase. The ejection fraction
+coefficient refers to a five-percentage-point increase. Positive coefficients
+favor subjects with a higher value of the corresponding predictor.
+
+The default restriction times are the 25th, 50th, and 75th sample quantiles
+of the observed terminal times, counting each subject once.
+A positive vector supplied through \texttt{L} replaces these defaults.
+The largest requested time must not exceed the largest observed terminal time.
+Inference treats the selected times as fixed and intervals are pointwise.
+
+<<restriction>>=
+fit$L
+@
+
+CH requires both restricted individual histories to be observed. HT and DL use
+comparisons that can be determined earlier. HT weights the centered outcome,
+whereas DL weights the full residual. All three untruncated estimating
+equations target the same full-data regression parameter under the stated
+censoring assumptions.
+
+The available links are \texttt{"identity"}, \texttt{"logit"}, and
+\texttt{"probit"}. For a difference $z$ between outcome model-matrix rows,
+write $\eta=z^\top\beta$. The means are $(1+\eta)/2$,
+$\operatorname{expit}(\eta)$, and $\Phi(\eta)$, respectively.
+All three satisfy $h(-\eta)=1-h(\eta)$.
+Identity coefficients are on the conditional net-benefit scale. Identity
+estimates at the probability boundary do not receive regular Wald inference.
+
+A vector requests several links in the same call. For example,
+
+<<links,eval=FALSE>>=
+fit_links <- gpim(
+  HierSurv(time, status) ~
+    treatment + I(age / 10) + sex + I(lvef / 5),
+  data = hfaction,
+  censor_formula = ~ treatment + I(age / 10) + sex,
+  method = "DL",
+  link = c("identity", "logit", "probit")
+)
+@
+
+The censoring model is a Cox model with Breslow handling of ties. Its
+predictors are given by \texttt{censor\_formula}, which defaults to the outcome
+formula's predictors. Use \texttt{censor\_formula = \textasciitilde{} 1}
+for an unconditional censoring estimate. Weights use the left limit of the
+cumulative censoring hazard.
+
+\section{Results}
+
+The summary provides coefficients, standard errors, confidence intervals,
+and p-values. Standard extractors and selection by method, link, or restriction
+time are available.
+
+<<summary>>=
+summary(fit, method = "DL", L = fit$L[2])
+@
+
+<<extract,eval=FALSE>>=
+coef(fit)
+vcov(fit, method = "DL", L = fit$L[2])
+confint(fit, method = "DL")
+trajectory_data(fit)
+saveRDS(fit, "fit.rds")
+@
+
+The covariance calculation accounts for overlapping subject pairs and
+estimation of both the censoring coefficients and baseline cumulative hazard.
+It assumes independent subjects and a suitable censoring model with adequate
+observation probabilities.
+
+\section{Convergence controls}
+
+The main controls are the iteration limit \texttt{maxit}, score tolerance
+\texttt{tol}, relative step tolerance \texttt{step\_tol}, maximum Newton step
+\texttt{max\_step}, and line-search limit \texttt{max\_halving}.
+Censoring-model controls are \texttt{cox\_maxit}, \texttt{cox\_tol}, and
+\texttt{cox\_score\_tol}.
+
+<<control,eval=FALSE>>=
+control <- pim_control(
+  maxit = 200,
+  tol = 1e-8,
+  step_tol = 1e-10,
+  cox_maxit = 100,
+  trace = TRUE,
+  progress = TRUE,
+  on_failure = "warn"
+)
+@
+
+For all nonlinear links, convergence requires the norm of the mean pair score
+to be no greater than \texttt{tol}. A small step without meeting that
+condition is reported as stagnation. Identity fitting is algebraic when
+the root is admissible.
+
+Named starting coefficients can be supplied through \texttt{start}.
+The same vector is used for each requested nonlinear fit.
+Within \texttt{pim\_control()}, \texttt{trace = TRUE} prints iterations,
+while \texttt{progress = TRUE} reports progress through the requested fits.
+
+The default failure policy, \texttt{"warn"}, retains problematic fits with
+a warning. The \texttt{"quiet"} policy retains the results and messages
+without a fitting warning. The \texttt{"stop"} policy stops when a requested
+fit needs attention. Input errors always stop.
+
+<<diagnostics>>=
+d <- pim_diagnostics(fit)
+d[, c("L", "method", "converged", "iterations", "score_norm")]
+@
+
+Convergence and availability of inference are recorded separately.
+The diagnostic table also reports comparison counts and censoring weights.
+Individual fits retain detailed iteration histories.
+
+<<inspect,eval=FALSE>>=
+subset(d, requires_attention)
+fit$fits[[1]]$iteration_history
+@
+
+The default \texttt{weight\_floor = 0} leaves observation probabilities
+untruncated. A positive floor changes the weights and can change the target.
+Use \texttt{keep\_pairs = TRUE} to retain pair records for inspection.
+
+\section{Coefficient trajectories}
+
+The plot method displays each coefficient over the restriction times.
+Shaded intervals are pointwise confidence intervals.
+
+<<trajectory,fig=TRUE,width=7,height=6>>=
+plot(fit, method = "DL")
+@
+
+The \texttt{parameters}, \texttt{method}, and \texttt{link} arguments select
+the displayed coefficients and models. The \texttt{conf.int} argument
+controls whether intervals are shown.
+\begin{thebibliography}{1}
+\bibitem{Cao2026}
+Cao, Z., Fang, X., and Li, F. (2026).
+Generalized win fraction regression for composite survival endpoints.
+\emph{arXiv}, 2604.04360.
+doi:10.48550/arXiv.2604.04360.
+\end{thebibliography}
+\end{document}
+

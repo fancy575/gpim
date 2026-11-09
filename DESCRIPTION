@@ -1,0 +1,28 @@
+Package: gpim
+Type: Package
+Title: Probabilistic index models for hierarchical survival outcomes
+Version: 0.0.1
+Authors@R: c(person("Xi", "Fang", role = c("aut", "cre"),
+    email = "xfang@mcw.edu"),
+    person("Zhiqiang", "Cao", role = "aut"),
+    person("Lu", "Mao", role = "aut"),
+    person("Fan", "Li", role = "aut"))
+Description: Fits probabilistic index regression models for prioritized
+    composite survival outcomes from long-format event records. Complete-history,
+    Horvitz-Thompson, and determinant-level censoring adjustments are available
+    with identity, logit, and probit links. Cox and Breslow censoring
+    estimation, martingale-adjusted sandwich inference, formula interfaces,
+    coefficient trajectories, and convergence diagnostics are included.
+    The methods are described in Fang, Cao, Mao, and Li (2026),
+    "Probabilistic index models for hierarchical survival outcomes"
+    (manuscript under review).
+License: GPL-3
+Encoding: UTF-8
+Depends: R (>= 4.1.0)
+Imports: survival, stats, graphics, grDevices, utils, Rcpp
+LinkingTo: Rcpp
+SystemRequirements: C++17
+LazyData: true
+NeedsCompilation: yes
+Roxygen: list(roclets = c("collate", "namespace", "rd"))
+Config/roxygen2/version: 8.0.0

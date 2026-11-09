@@ -1,0 +1,36 @@
+[
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/version2/pim_package/gpim/src/gpim_pairs.cpp",
+        "file_last_write": 1794116207.0,
+        "definitions": [
+            {
+                "usr": "c:@F@gpim_pairs_cpp#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI10#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI13#@N@Rcpp@ST>1#T@PreserveStorage#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_pairs_cpp(Rcpp::NumericVector, Rcpp::LogicalVector, Rcpp::NumericMatrix, Rcpp::IntegerVector, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/version2/pim_package/gpim/src/gpim_pairs.cpp",
+                "line": 10,
+                "column": 12,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    },
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/version3/pim_package/gpim/src/gpim_pairs.cpp",
+        "file_last_write": 1794233136.0,
+        "definitions": [
+            {
+                "usr": "c:@F@gpim_pairs_cpp#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI10#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI13#@N@Rcpp@ST>1#T@PreserveStorage#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_pairs_cpp(Rcpp::NumericVector, Rcpp::LogicalVector, Rcpp::NumericMatrix, Rcpp::IntegerVector, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/version3/pim_package/gpim/src/gpim_pairs.cpp",
+                "line": 10,
+                "column": 12,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    }
+]
