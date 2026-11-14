@@ -1,0 +1,260 @@
+[
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+        "file_last_write": 1794678270.0,
+        "definitions": [
+            {
+                "usr": "c:@N@gpim_joint@S@CopulaLogs",
+                "kind": 3,
+                "parent_name": "",
+                "name": "CopulaLogs",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 14,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@F@copula_code#&1$@N@std@N@__cxx11@S@basic_string>#C#$@N@std@S@char_traits>#C#$@N@std@S@allocator>#C#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "copula_code(const std::string &)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 18,
+                "column": 12,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@F@log_add#D#D#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "log_add(long double, long double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 27,
+                "column": 20,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@F@copula_logs#D#D#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "copula_logs(long double, long double, double, int)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 34,
+                "column": 19,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@F@pattern_value#D#D#d#I#I#I#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "pattern_value(long double, long double, double, int, int, int, bool)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 127,
+                "column": 20,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@S@LocalScore",
+                "kind": 3,
+                "parent_name": "",
+                "name": "LocalScore",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 138,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:@N@gpim_joint@F@local_score#d#d#d#I#I#I#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "local_score(double, double, double, int, int, int, bool)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_copula.h",
+                "line": 142,
+                "column": 19,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    },
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_equation.cpp",
+        "file_last_write": 1794678270.0,
+        "definitions": [
+            {
+                "usr": "c:gpim_equation.cpp@aN@F@pim_link_values#d#I#&d#S0_#S0_#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "pim_link_values(double, int, double &, double &, double &, double &, double &)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_equation.cpp",
+                "line": 7,
+                "column": 13,
+                "hidden": false
+            },
+            {
+                "usr": "c:@F@gpim_equation_cpp#$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#S1_#S1_#I#b#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_equation_cpp(Rcpp::NumericMatrix, Rcpp::NumericVector, Rcpp::NumericVector, Rcpp::NumericVector, int, bool, Rcpp::List)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_equation.cpp",
+                "line": 32,
+                "column": 12,
+                "hidden": false
+            },
+            {
+                "usr": "c:@F@gpim_ctw_pairs_cpp#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_ctw_pairs_cpp(Rcpp::List, Rcpp::NumericVector, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_equation.cpp",
+                "line": 120,
+                "column": 12,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    },
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+        "file_last_write": 1794678270.0,
+        "definitions": [
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@MarginValue",
+                "kind": 3,
+                "parent_name": "",
+                "name": "MarginValue",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 12,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@Margin",
+                "kind": 3,
+                "parent_name": "",
+                "name": "Margin",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 20,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@Margin@F@evaluate#I#d#b#1",
+                "kind": 7,
+                "parent_name": "Margin",
+                "name": "evaluate(int, double, bool)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 52,
+                "column": 15,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@Margin@F@add_total#&$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#&1$@aN@S@MarginValue#I#d#d#1",
+                "kind": 7,
+                "parent_name": "Margin",
+                "name": "add_total(Rcpp::NumericVector &, std::vector<double> &, const (anonymous namespace)::MarginValue &, int, double, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 111,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@Margin@F@finish_total#&$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#&1$@N@std@S@vector>#d#$@N@std@S@allocator>#d#1",
+                "kind": 7,
+                "parent_name": "Margin",
+                "name": "finish_total(Rcpp::NumericVector &, const std::vector<double> &)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 127,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@Margin@F@add_row#&$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#&1$@aN@S@MarginValue#I#d#d#d#1",
+                "kind": 7,
+                "parent_name": "Margin",
+                "name": "add_row(Rcpp::NumericMatrix &, const (anonymous namespace)::MarginValue &, int, double, double, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 137,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@S@JointData",
+                "kind": 3,
+                "parent_name": "",
+                "name": "JointData",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 157,
+                "column": 8,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@F@invalid_result#I#I#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "invalid_result(int, int, bool)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 181,
+                "column": 12,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@F@get_grid#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#*1C#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "get_grid(Rcpp::List, const char *)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 194,
+                "column": 21,
+                "hidden": false
+            },
+            {
+                "usr": "c:gpim_joint.cpp@aN@F@score_finite#&1$@N@gpim_joint@S@LocalScore#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "score_finite(const gpim_joint::LocalScore &)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 199,
+                "column": 6,
+                "hidden": false
+            },
+            {
+                "usr": "c:@F@gpim_joint_cpp#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#S1_#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_joint_cpp(Rcpp::NumericVector, Rcpp::List, Rcpp::List, bool)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 212,
+                "column": 12,
+                "hidden": false
+            },
+            {
+                "usr": "c:@F@gpim_joint_q_cpp#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#S1_#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_joint_q_cpp(Rcpp::NumericVector, Rcpp::List, Rcpp::List, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_joint.cpp",
+                "line": 265,
+                "column": 12,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    },
+    {
+        "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_pairs.cpp",
+        "file_last_write": 1794678270.0,
+        "definitions": [
+            {
+                "usr": "c:@F@gpim_pairs_cpp#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI10#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Vector>#VI13#@N@Rcpp@ST>1#T@PreserveStorage#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "gpim_pairs_cpp(Rcpp::NumericVector, Rcpp::LogicalVector, Rcpp::NumericMatrix, Rcpp::IntegerVector, double)",
+                "file": "C:/Users/xi32457/Dropbox/Yale Documents/Research/Weighted_PIM/verision4/pim_package/gpim/src/gpim_pairs.cpp",
+                "line": 10,
+                "column": 12,
+                "hidden": false
+            }
+        ],
+        "hidden": false
+    }
+]

@@ -9,209 +9,278 @@
 \usepackage{amsmath}
 \usepackage{Sweave}
 \usepackage{graphicx}
+\usepackage{url}
 \title{Using \texttt{gpim}}
 \author{}
 \date{}
 \begin{document}
 \maketitle
 
-<<setup,include=FALSE>>=
+<<setup,echo=FALSE,results=hide>>=
 library(gpim)
-options(width = 72)
+options(width = 72, digits = 3)
 @
 
-\section{Data and endpoint order}
+\section{Observed event histories}
 
 The package fits probabilistic index regression for prioritized survival
-outcomes using the censoring adjustments of Cao, Fang, and Li~\cite{Cao2026}. Each subject contributes one terminal record and a separate record
-for each observed nonfatal event. Code 0 denotes censoring, code 1 denotes
-death, and codes 2, 3, and higher denote nonfatal outcomes in decreasing
-priority. Baseline covariates are repeated consistently within a subject.
-Follow-up continues after a nonfatal event.
+outcomes. Death is compared first. A nonfatal component is considered only
+when all higher-priority components are tied. A later event time is favorable,
+and a genuine tie receives the midpoint response \(1/2\).
 
-The two supplied data sets, \texttt{hfaction} and \texttt{hierarchy}, are
-synthetic. Neither contains original clinical participant records.
-The \texttt{hfaction} data contain death and first hospitalization, with time
-measured in years. The \texttt{hierarchy} data contain three endpoint priorities.
+Each individual contributes exactly one terminal row. Status 1 identifies
+death and status 0 identifies censoring. Each observed nonfatal event has a
+separate row, with code 2 for the highest-priority nonfatal component.
+Additional positive codes identify further nonfatal components for CHW and
+RCW. Baseline covariates are constant within an individual's records.
+Observation of nonfatal events ends at death or censoring. If a nonfatal
+event is not observed, its event row is omitted.
 
-<<data,results=hide>>=
-data(hfaction)
-data(hierarchy)
+The supplied \texttt{hfaction} and \texttt{hierarchy} data sets are synthetic.
+Neither contains original clinical participant records. The former contains
+death and first hospitalization, with time in years. The latter illustrates
+three endpoint priorities.
+
+<<data>>=
+data(hfaction, package = "gpim")
+head(hfaction[, c("id", "time", "status", "treatment")])
 @
 
-The comparison begins with restricted death times. The next endpoint is
-considered only after all higher priorities have been established as tied.
-An unresolved comparison caused by censoring is distinct from a genuine tie.
-The default order is increasing positive status code. An explicit
-\texttt{priorities} vector must start with 1 and include every observed
-positive code. Later event times are favorable.
+The default priority order follows increasing positive status codes.
+An explicit \texttt{priorities} vector must begin with 1 and include every
+observed positive code. Each nonfatal component is time to its first event.
+The option \texttt{recurrent = "first"} uses the first occurrence when a type
+has repeated records. Use \texttt{recurrent = "error"} to reject repeated
+records. Missing required values are rejected by default.
+The option \texttt{na.action = "na.omit"} removes the whole individual when
+any required value is missing.
 
-Each nonfatal endpoint is time to its first event. With repeated records of
-one type, \texttt{recurrent = "first"} uses the earliest occurrence and warns.
-The option \texttt{recurrent = "error"} rejects repeated records.
-Covariates must be constant within subject. Missing required values cause
-an error by default. Setting \texttt{na.action = "na.omit"} removes the
-whole subject.
+\section{Three estimating methods}
 
-\section{Fitting}
+Complete-history weighting, requested as \texttt{"CHW"}, uses pairs for which
+both restricted histories are observed. Resolved-comparison weighting,
+requested as \texttt{"RCW"}, also uses comparisons determined before both
+histories are complete. These methods require a fitted censoring model.
 
-The formula uses differences between subject model-matrix rows. A free
-intercept therefore cancels. Factors, transformations, and interactions
-follow the usual R formula conventions.
+Conditional tie weighting, requested as \texttt{"CTW"}, additionally uses
+an observed nonfatal ordering when the fatal tie remains uncertain. Its
+conditional probability weights the complete regression residual for that
+ordering. A joint event model supplies this probability.
+Fang and Li~\cite{FangLi2026} develop conditional tie weighting, and
+Fang et al.~\cite{Fang2026} develop the regression equations.
+
+The built-in CTW models cover one fatal event and one first nonfatal event.
+CHW and RCW also allow the larger fixed hierarchy represented by
+\texttt{hierarchy}. Under their respective model assumptions, the untruncated
+equations target the same full data regression parameter. The package does
+not assert a general ordering of the fitted estimators' variances.
+
+\section{Fitting a model}
+
+The PIM formula uses differences between individual model-matrix rows.
+A free intercept therefore cancels. Factors, transformations and interactions
+follow the usual R formula conventions. This example compares all three
+methods at \(L=2\) years.
 
 <<fit>>=
+event_model <- pim_joint_model(
+  copula = "gumbel",
+  margins = c(death = "weibull", nonfatal = "weibull"),
+  death_formula = ~ treatment,
+  nonfatal_formula = ~ treatment
+)
+
 fit <- gpim(
-  HierSurv(time, status) ~
-    treatment + I(age / 10) + sex + I(lvef / 5),
+  HierSurv(time, status) ~ treatment + I(age / 10),
   data = hfaction,
   id = "id",
-  censor_formula = ~ treatment + I(age / 10) + sex,
-  method = c("CH", "HT", "DL"),
-  link = "logit"
+  L = 2,
+  method = c("CHW", "RCW", "CTW"),
+  link = "logit",
+  censor_formula = ~ treatment + I(age / 10),
+  joint_model = event_model
 )
 @
 
-The age coefficient refers to a ten-year increase. The ejection fraction
-coefficient refers to a five-percentage-point increase. Positive coefficients
-favor subjects with a higher value of the corresponding predictor.
-
-The default restriction times are the 25th, 50th, and 75th sample quantiles
-of the observed terminal times, counting each subject once.
-A positive vector supplied through \texttt{L} replaces these defaults.
-The largest requested time must not exceed the largest observed terminal time.
-Inference treats the selected times as fixed and intervals are pointwise.
-
-<<restriction>>=
-fit$L
-@
-
-CH requires both restricted individual histories to be observed. HT and DL use
-comparisons that can be determined earlier. HT weights the centered outcome,
-whereas DL weights the full residual. All three untruncated estimating
-equations target the same full-data regression parameter under the stated
-censoring assumptions.
-
-The available links are \texttt{"identity"}, \texttt{"logit"}, and
-\texttt{"probit"}. For a difference $z$ between outcome model-matrix rows,
-write $\eta=z^\top\beta$. The means are $(1+\eta)/2$,
-$\operatorname{expit}(\eta)$, and $\Phi(\eta)$, respectively.
-All three satisfy $h(-\eta)=1-h(\eta)$.
-Identity coefficients are on the conditional net-benefit scale. Identity
-estimates at the probability boundary do not receive regular Wald inference.
-
-A vector requests several links in the same call. For example,
-
-<<links,eval=FALSE>>=
-fit_links <- gpim(
-  HierSurv(time, status) ~
-    treatment + I(age / 10) + sex + I(lvef / 5),
-  data = hfaction,
-  censor_formula = ~ treatment + I(age / 10) + sex,
-  method = "DL",
-  link = c("identity", "logit", "probit")
-)
-@
-
-The censoring model is a Cox model with Breslow handling of ties. Its
-predictors are given by \texttt{censor\_formula}, which defaults to the outcome
-formula's predictors. Use \texttt{censor\_formula = \textasciitilde{} 1}
-for an unconditional censoring estimate. Weights use the left limit of the
-cumulative censoring hazard.
-
-\section{Results}
-
-The summary provides coefficients, standard errors, confidence intervals,
-and p-values. Standard extractors and selection by method, link, or restriction
-time are available.
+The age coefficient corresponds to a ten-year increase. Under the logit link,
+exponentiating a coefficient gives the conditional win odds for its covariate
+contrast. The treatment contrast follows the factor coding in the model
+matrix.
 
 <<summary>>=
-summary(fit, method = "DL", L = fit$L[2])
+tab <- summary(fit, method = "CTW")$coefficients
+print(tab[, c("term", "estimate", "std.error", "conf.low", "conf.high")],
+      digits = 3, row.names = FALSE)
 @
 
+The package also supports \texttt{"probit"} and \texttt{"identity"}.
+For a covariate difference \(z\), their inverse links are
+\(\Phi(z^\top\beta)\) and \((1+z^\top\beta)/2\), respectively.
+Identity coefficients are on the conditional net-benefit scale. A vector of
+links or restriction times requests several fits in one call.
+
+<<several-fits,eval=FALSE>>=
+fit_several <- gpim(
+  HierSurv(time, status) ~ treatment + I(age / 10),
+  data = hfaction,
+  id = "id",
+  L = c(1.5, 2),
+  method = "all",
+  link = c("logit", "probit"),
+  censor_formula = ~ treatment + I(age / 10),
+  joint_model = event_model
+)
+@
+
+Use prespecified restriction times when inference at those times is the
+scientific objective. If \texttt{L} is omitted, the package uses the 25th,
+50th and 75th sample quantiles of the individual terminal times. Inference
+treats the selected times as fixed, and confidence intervals are pointwise.
+
+\section{Joint event models for CTW}
+
+The model specification is supplied through \texttt{pim\_joint\_model()}.
+Copula choices are \texttt{"gumbel"}, \texttt{"clayton"},
+\texttt{"frank"}, \texttt{"plackett"} and \texttt{"independence"}.
+Gumbel, Clayton and Frank options use positive dependence. Plackett allows
+positive or negative dependence. Independence fixes the dependence structure
+while estimating the margin parameters.
+
+Margin choices are \texttt{"weibull"}, \texttt{"lognormal"},
+\texttt{"exponential"} and \texttt{"cox"}. The first entry of
+\texttt{margins} specifies death and the second specifies the nonfatal
+component. A single entry is repeated for both components. Named entries
+\texttt{death} and \texttt{nonfatal} make the order explicit. The two
+components can have different margin types and different baseline covariates.
+Weibull, exponential and Cox margins use proportional hazards. Lognormal
+margins use accelerated failure time regression. Parametric margins require
+positive event times.
+
+<<cox-margins,eval=FALSE>>=
+cox_event_model <- pim_joint_model(
+  copula = "frank",
+  margins = c(death = "cox", nonfatal = "cox"),
+  death_formula = ~ treatment + I(age / 10),
+  nonfatal_formula = ~ treatment + I(age / 10)
+)
+
+fit_cox <- gpim(
+  HierSurv(time, status) ~ treatment + I(age / 10),
+  data = hfaction,
+  id = "id",
+  L = 2,
+  method = "CTW",
+  censor_formula = ~ treatment + I(age / 10),
+  joint_model = cox_event_model
+)
+@
+
+Cox margin functions leave the baseline cumulative hazards unspecified.
+Their increments are estimated jointly with the regression coefficients
+and copula parameter. The likelihood includes death without a preceding
+nonfatal event and assigns no nonfatal event after death. The second copula
+margin function is part of this joint construction. It is not obtained by
+treating death as independent censoring in a separate nonfatal-event Cox fit.
+
+The event model is fitted once across requested restriction times and links.
+The conditional tie probability at \(L\) uses the corresponding restricted
+individual history. Follow-up beyond \(L\) can estimate the common event-model
+parameters. When an event formula is omitted, its margin uses the PIM
+formula's predictors. The function \texttt{pim\_joint\_fit(fit)} returns
+the fitted event model.
+
+Each selected copula is a separate model specification. The package does not
+choose a copula automatically. Scientific interpretation and sensitivity to
+alternative families remain part of the analysis.
+
+\section{Censoring adjustment and variance}
+
+The censoring model uses Cox regression and Breslow ties. Its covariates are
+given by \texttt{censor\_formula}. A formula \texttt{\~{}1} specifies a
+model without covariates. Weights use the left limit of the fitted cumulative
+censoring hazard at the required comparison time.
+
+All three methods use the subject influence covariance. For method \(a\),
+let \(\widehat v_{L,i}^a\) be the fitted coefficient influence of individual
+\(i\), and let \(\overline v_L^a\) be its average. Then
+\begin{equation*}
+\widehat{\operatorname{Var}}(\widehat\beta_L^a)
+=\frac{1}{n^2}\sum_{i=1}^n
+(\widehat v_{L,i}^a-\overline v_L^a)
+(\widehat v_{L,i}^a-\overline v_L^a)^\top.
+\end{equation*}
+The influence includes the pair projection and the censoring contribution.
+CTW adds the joint event-model contribution. These are added before forming
+the covariance, including their cross covariances.
+
+For censoring, the coefficient and baseline contributions use the fitted
+martingale increments \(d\widehat M_i^C(t)=dN_i^C(t)-
+Y_i^C(t)\exp(\widehat\gamma^\top W_i)d\widehat\Lambda_0^C(t)\).
+The Cox coefficient and the Breslow baseline both contribute to uncertainty
+in the weights. The joint-model contribution uses individual likelihood
+scores and the negative Hessian of the mean log likelihood. With Cox
+margins, the score includes both baseline cumulative hazards as well as the
+regression and dependence parameters. The baseline functions and conditional
+tie probabilities are not treated as fixed.
+
+Version 0.1.0 uses this formula throughout. Its finite-sample values can differ
+from the previous overlapping-pair covariance calculation. The two formulas
+have the same first-order asymptotic representation under the stated
+assumptions.
+
+The centered coefficient influence matrix is stored with each fitted
+component and reproduces its covariance directly.
+
+<<influence,eval=FALSE>>=
+component <- fit$fits[[1]]
+crossprod(component$influence) / fit$n^2
+component$vcov
+names(component$influence_components)
+@
+
+\section{Extraction and controls}
+
+Standard extractors allow selection by method, link and restriction time.
+
 <<extract,eval=FALSE>>=
-coef(fit)
-vcov(fit, method = "DL", L = fit$L[2])
-confint(fit, method = "DL")
+coef(fit, method = "CTW")
+vcov(fit, method = "CTW")
+confint(fit, method = "CTW")
 trajectory_data(fit)
+pim_joint_fit(fit)
 saveRDS(fit, "fit.rds")
 @
 
-The covariance calculation accounts for overlapping subject pairs and
-estimation of both the censoring coefficients and baseline cumulative hazard.
-It assumes independent subjects and a suitable censoring model with adequate
-observation probabilities.
+PIM options are supplied through \texttt{pim\_control()} and event-model
+options through \texttt{pim\_joint\_model()}. Their help pages list the
+defaults. A positive probability floor changes the censoring weights when
+active. Use \texttt{weight\_floor = 0} for untruncated weights.
 
-\section{Convergence controls}
-
-The main controls are the iteration limit \texttt{maxit}, score tolerance
-\texttt{tol}, relative step tolerance \texttt{step\_tol}, maximum Newton step
-\texttt{max\_step}, and line-search limit \texttt{max\_halving}.
-Censoring-model controls are \texttt{cox\_maxit}, \texttt{cox\_tol}, and
-\texttt{cox\_score\_tol}.
-
-<<control,eval=FALSE>>=
-control <- pim_control(
-  maxit = 200,
-  tol = 1e-8,
-  step_tol = 1e-10,
-  cox_maxit = 100,
-  trace = TRUE,
-  progress = TRUE,
-  on_failure = "warn"
+<<controls,eval=FALSE>>=
+control <- pim_control(weight_floor = 0, maxit = 200, trace = TRUE)
+event_model <- pim_joint_model(
+  copula = "clayton",
+  margins = "weibull",
+  maxit = 1000,
+  trace = TRUE
 )
 @
 
-For all nonlinear links, convergence requires the norm of the mean pair score
-to be no greater than \texttt{tol}. A small step without meeting that
-condition is reported as stagnation. Identity fitting is algebraic when
-the root is admissible.
+Pair and likelihood calculations use C++17. For Cox event-model margins,
+the number of baseline increments grows with the number of distinct event
+times. Standard errors include these additional estimated parameters.
 
-Named starting coefficients can be supplied through \texttt{start}.
-The same vector is used for each requested nonlinear fit.
-Within \texttt{pim\_control()}, \texttt{trace = TRUE} prints iterations,
-while \texttt{progress = TRUE} reports progress through the requested fits.
+\begin{thebibliography}{2}
+\bibitem{Fang2026}
+Fang, X., Cao, Z., Mao, L., and Li, F. (2026).
+Probabilistic index models for hierarchical survival outcomes.
+Manuscript under review.
 
-The default failure policy, \texttt{"warn"}, retains problematic fits with
-a warning. The \texttt{"quiet"} policy retains the results and messages
-without a fitting warning. The \texttt{"stop"} policy stops when a requested
-fit needs attention. Input errors always stop.
-
-<<diagnostics>>=
-d <- pim_diagnostics(fit)
-d[, c("L", "method", "converged", "iterations", "score_norm")]
-@
-
-Convergence and availability of inference are recorded separately.
-The diagnostic table also reports comparison counts and censoring weights.
-Individual fits retain detailed iteration histories.
-
-<<inspect,eval=FALSE>>=
-subset(d, requires_attention)
-fit$fits[[1]]$iteration_history
-@
-
-The default \texttt{weight\_floor = 0} leaves observation probabilities
-untruncated. A positive floor changes the weights and can change the target.
-Use \texttt{keep\_pairs = TRUE} to retain pair records for inspection.
-
-\section{Coefficient trajectories}
-
-The plot method displays each coefficient over the restriction times.
-Shaded intervals are pointwise confidence intervals.
-
-<<trajectory,fig=TRUE,width=7,height=6>>=
-plot(fit, method = "DL")
-@
-
-The \texttt{parameters}, \texttt{method}, and \texttt{link} arguments select
-the displayed coefficients and models. The \texttt{conf.int} argument
-controls whether intervals are shown.
-\begin{thebibliography}{1}
-\bibitem{Cao2026}
-Cao, Z., Fang, X., and Li, F. (2026).
-Generalized win fraction regression for composite survival endpoints.
-\emph{arXiv}, 2604.04360.
-doi:10.48550/arXiv.2604.04360.
+\bibitem{FangLi2026}
+Fang, X. and Li, F. (2026).
+Making censored pairs count: conditional tie weighting for win statistics
+with composite survival endpoints.
+\emph{arXiv preprint}, version 3.
+\url{https://arxiv.org/abs/2605.26507}.
 \end{thebibliography}
 \end{document}
-

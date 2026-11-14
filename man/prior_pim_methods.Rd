@@ -62,7 +62,7 @@ For \code{print.summary.prior_pim}, an object returned by \code{summary}.}
 \item{conf.level, level}{Confidence level strictly between zero and one.}
 
 \item{method}{Optional vector selecting fitted methods, such as
-\code{c("CH", "DL")}. \code{NULL} selects all methods.}
+\code{c("CHW", "RCW")}. \code{NULL} selects all methods.}
 
 \item{link}{Optional vector selecting fitted links. \code{NULL} selects all
 links.}
@@ -109,7 +109,7 @@ invisibly after drawing the plots.
 Summarize fitted coefficients, extract model components, and plot coefficient
 trajectories over the restriction time. Wald inference includes the dependence
 between comparisons sharing an individual and estimation of the censoring
-distribution, as computed by the fitted model.
+distribution. For CTW they also include joint-model estimation.
 }
 \details{
 \code{summary} reports the estimate, standard error, Wald statistic, two-sided
@@ -161,32 +161,32 @@ fit <- gpim(
     treatment + I(age / 10) + sex + I(lvef / 5),
   data = hfaction,
   id = "id",
-  method = c("CH", "HT", "DL"),
+  method = c("CHW", "RCW", "CTW"),
   link = "logit",
   censor_formula = ~ treatment + I(age / 10) + sex
 )
 
-# Summarize DL estimates at every fitted time.
-summary(fit, method = "DL")
+# Summarize RCW estimates at every fitted time.
+summary(fit, method = "RCW")
 
 # Select one fitted time and request 90 percent confidence intervals.
 middle_time <- fit$L[2]
-summary(fit, method = "DL", L = middle_time, conf.level = 0.90)
+summary(fit, method = "RCW", L = middle_time, conf.level = 0.90)
 
 # Extract coefficients, covariance, intervals, and the subject count.
-coef(fit, method = "DL", L = middle_time)
-vcov(fit, method = "DL", L = middle_time)
-confint(fit, method = "DL", L = middle_time)
+coef(fit, method = "RCW", L = middle_time)
+vcov(fit, method = "RCW", L = middle_time)
+confint(fit, method = "RCW", L = middle_time)
 nobs(fit)
 
-# Plot every DL coefficient over time with pointwise intervals.
-plot(fit, method = "DL")
+# Plot every RCW coefficient over time with pointwise intervals.
+plot(fit, method = "RCW")
 
-# Compare CH, HT, and DL for the treatment coefficient.
+# Compare CHW, RCW, and CTW for the treatment coefficient.
 plot(fit, parameters = "treatmentExercise", conf.int = FALSE)
 
-# Obtain the estimates and intervals used in the DL plots.
-trajectory_data(fit, method = "DL")
+# Obtain the estimates and intervals used in the RCW plots.
+trajectory_data(fit, method = "RCW")
 }
 \seealso{
 \code{\link{gpim}}, \code{\link{pim_diagnostics}}

@@ -140,7 +140,7 @@ trajectory_data <- function(object, parameters = NULL, method = NULL,
 #' diagnostics for the censoring weights and covariance estimate.
 #' @param object A fitted object returned by \code{\link{gpim}}.
 #' @param method Optional vector of fitted methods, such as
-#'     \code{c("CH", "DL")}. \code{NULL} selects all methods.
+#'     \code{c("CHW", "RCW")}. \code{NULL} selects all methods.
 #' @param link Optional vector of fitted links. \code{NULL} selects all links.
 #' @param L Optional numeric vector selecting restriction times already
 #'     fitted. No interpolation or refitting is performed.
@@ -163,8 +163,8 @@ trajectory_data <- function(object, parameters = NULL, method = NULL,
 #' whose outcome can be determined under the hierarchical rule.
 #' \code{n_complete_history} counts pairs with both restricted individual
 #' histories observed. \code{n_retained} counts the pairs satisfying the selected
-#' method's observation requirement. For HT, the mean response term still uses
-#' all pairs, including those without an observed win or loss.
+#' method's observation requirement. For CTW this also includes observed
+#' nonfatal comparisons with a positive conditional tie weight.
 #'
 #' \code{min_probability} and \code{max_weight} summarize the observation
 #' probabilities and weights for retained pairs. \code{n_truncated} counts
@@ -250,12 +250,12 @@ pim_diagnostics <- function(object, method = NULL, link = NULL, L = NULL) {
 #' @description Summarize fitted coefficients, extract model components, and plot coefficient
 #' trajectories over the restriction time. Wald inference includes the dependence
 #' between comparisons sharing an individual and estimation of the censoring
-#' distribution, as computed by the fitted model.
+#' distribution. For CTW they also include joint-model estimation.
 #' @param object,x A fitted object returned by \code{gpim}.
 #'     For \code{print.summary.prior_pim}, an object returned by \code{summary}.
 #' @param conf.level,level Confidence level strictly between zero and one.
 #' @param method Optional vector selecting fitted methods, such as
-#'     \code{c("CH", "DL")}. \code{NULL} selects all methods.
+#'     \code{c("CHW", "RCW")}. \code{NULL} selects all methods.
 #' @param link Optional vector selecting fitted links. \code{NULL} selects all
 #'     links.
 #' @param L Optional numeric vector selecting restriction times that were
@@ -337,32 +337,32 @@ pim_diagnostics <- function(object, method = NULL, link = NULL, L = NULL) {
 #'     treatment + I(age / 10) + sex + I(lvef / 5),
 #'   data = hfaction,
 #'   id = "id",
-#'   method = c("CH", "HT", "DL"),
+#'   method = c("CHW", "RCW", "CTW"),
 #'   link = "logit",
 #'   censor_formula = ~ treatment + I(age / 10) + sex
 #' )
 #'
-#' # Summarize DL estimates at every fitted time.
-#' summary(fit, method = "DL")
+#' # Summarize RCW estimates at every fitted time.
+#' summary(fit, method = "RCW")
 #'
 #' # Select one fitted time and request 90 percent confidence intervals.
 #' middle_time <- fit$L[2]
-#' summary(fit, method = "DL", L = middle_time, conf.level = 0.90)
+#' summary(fit, method = "RCW", L = middle_time, conf.level = 0.90)
 #'
 #' # Extract coefficients, covariance, intervals, and the subject count.
-#' coef(fit, method = "DL", L = middle_time)
-#' vcov(fit, method = "DL", L = middle_time)
-#' confint(fit, method = "DL", L = middle_time)
+#' coef(fit, method = "RCW", L = middle_time)
+#' vcov(fit, method = "RCW", L = middle_time)
+#' confint(fit, method = "RCW", L = middle_time)
 #' nobs(fit)
 #'
-#' # Plot every DL coefficient over time with pointwise intervals.
-#' plot(fit, method = "DL")
+#' # Plot every RCW coefficient over time with pointwise intervals.
+#' plot(fit, method = "RCW")
 #'
-#' # Compare CH, HT, and DL for the treatment coefficient.
+#' # Compare CHW, RCW, and CTW for the treatment coefficient.
 #' plot(fit, parameters = "treatmentExercise", conf.int = FALSE)
 #'
-#' # Obtain the estimates and intervals used in the DL plots.
-#' trajectory_data(fit, method = "DL")
+#' # Obtain the estimates and intervals used in the RCW plots.
+#' trajectory_data(fit, method = "RCW")
 #' @rdname prior_pim_methods
 #' @order 1
 #' @export
@@ -530,9 +530,9 @@ plot.prior_pim <- function(x, parameters = NULL, method = NULL, link = NULL,
   on.exit(graphics::par(oldpar), add = TRUE)
   graphics::par(mfrow = c(ceiling(npanels / ncol), ncol),
     mar = c(4.2, 4.5, 2.5, 1.0), oma = c(0, 0, 0, 0), las = 1)
-  palette <- c(CH = "#6683A6", HT = "#BC9455", DL = "#4E9B8F")
-  line_type <- c(CH = 2, HT = 3, DL = 1)
-  point_type <- c(CH = 16, HT = 17, DL = 15)
+  palette <- c(CHW = "#98B5C1", RCW = "#73A69F", CTW = "#487C94")
+  line_type <- c(CHW = 2, RCW = 3, CTW = 1)
+  point_type <- c(CHW = 16, RCW = 17, CTW = 15)
   axis_label <- c(logit = "Log win odds", probit = "Probit coefficient",
                   identity = "Net benefit")
   dots <- list(...)

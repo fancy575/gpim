@@ -10,6 +10,64 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// gpim_equation_cpp
+Rcpp::List gpim_equation_cpp(Rcpp::NumericMatrix Z, Rcpp::NumericVector beta, Rcpp::NumericVector y, Rcpp::NumericVector weight, int link, bool details, Rcpp::List state);
+RcppExport SEXP _gpim_gpim_equation_cpp(SEXP ZSEXP, SEXP betaSEXP, SEXP ySEXP, SEXP weightSEXP, SEXP linkSEXP, SEXP detailsSEXP, SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericMatrix >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type y(ySEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type weight(weightSEXP);
+    Rcpp::traits::input_parameter< int >::type link(linkSEXP);
+    Rcpp::traits::input_parameter< bool >::type details(detailsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(gpim_equation_cpp(Z, beta, y, weight, link, details, state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gpim_ctw_pairs_cpp
+Rcpp::List gpim_ctw_pairs_cpp(Rcpp::List pairs, Rcpp::NumericVector event_time, double L);
+RcppExport SEXP _gpim_gpim_ctw_pairs_cpp(SEXP pairsSEXP, SEXP event_timeSEXP, SEXP LSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type pairs(pairsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type event_time(event_timeSEXP);
+    Rcpp::traits::input_parameter< double >::type L(LSEXP);
+    rcpp_result_gen = Rcpp::wrap(gpim_ctw_pairs_cpp(pairs, event_time, L));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gpim_joint_cpp
+Rcpp::List gpim_joint_cpp(Rcpp::NumericVector par, Rcpp::List data, Rcpp::List spec, bool individual);
+RcppExport SEXP _gpim_gpim_joint_cpp(SEXP parSEXP, SEXP dataSEXP, SEXP specSEXP, SEXP individualSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type par(parSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type spec(specSEXP);
+    Rcpp::traits::input_parameter< bool >::type individual(individualSEXP);
+    rcpp_result_gen = Rcpp::wrap(gpim_joint_cpp(par, data, spec, individual));
+    return rcpp_result_gen;
+END_RCPP
+}
+// gpim_joint_q_cpp
+Rcpp::List gpim_joint_q_cpp(Rcpp::NumericVector par, Rcpp::List data, Rcpp::List spec, double L);
+RcppExport SEXP _gpim_gpim_joint_q_cpp(SEXP parSEXP, SEXP dataSEXP, SEXP specSEXP, SEXP LSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::NumericVector >::type par(parSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type data(dataSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type spec(specSEXP);
+    Rcpp::traits::input_parameter< double >::type L(LSEXP);
+    rcpp_result_gen = Rcpp::wrap(gpim_joint_q_cpp(par, data, spec, L));
+    return rcpp_result_gen;
+END_RCPP
+}
 // gpim_pairs_cpp
 Rcpp::List gpim_pairs_cpp(Rcpp::NumericVector observed_u, Rcpp::LogicalVector death, Rcpp::NumericMatrix event_times, Rcpp::IntegerVector priorities, double L);
 RcppExport SEXP _gpim_gpim_pairs_cpp(SEXP observed_uSEXP, SEXP deathSEXP, SEXP event_timesSEXP, SEXP prioritiesSEXP, SEXP LSEXP) {
@@ -27,6 +85,10 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_gpim_gpim_equation_cpp", (DL_FUNC) &_gpim_gpim_equation_cpp, 7},
+    {"_gpim_gpim_ctw_pairs_cpp", (DL_FUNC) &_gpim_gpim_ctw_pairs_cpp, 3},
+    {"_gpim_gpim_joint_cpp", (DL_FUNC) &_gpim_gpim_joint_cpp, 4},
+    {"_gpim_gpim_joint_q_cpp", (DL_FUNC) &_gpim_gpim_joint_q_cpp, 4},
     {"_gpim_gpim_pairs_cpp", (DL_FUNC) &_gpim_gpim_pairs_cpp, 5},
     {NULL, NULL, 0}
 };

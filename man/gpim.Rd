@@ -14,9 +14,10 @@ gpim(
   status = "status",
   L = NULL,
   probs = c(0.25, 0.5, 0.75),
-  method = "DL",
+  method = "RCW",
   link = "logit",
   censor_formula = NULL,
+  joint_model = NULL,
   priorities = NULL,
   recurrent = "first",
   na.action = "na.fail",
@@ -32,9 +33,10 @@ prior_pim(
   status = "status",
   L = NULL,
   probs = c(0.25, 0.5, 0.75),
-  method = "DL",
+  method = "RCW",
   link = "logit",
   censor_formula = NULL,
+  joint_model = NULL,
   priorities = NULL,
   recurrent = "first",
   na.action = "na.fail",
@@ -47,7 +49,7 @@ pim_control(...)
 \arguments{
 \item{formula}{An R formula, for example \code{HierSurv(time, status) ~ x1 + b}. A one-sided formula such as \code{~ x1 + b} uses the columns named by \code{time} and \code{status}. Factors, interactions, and standard formula transformations are supported. A free intercept is removed because the predictors are differences between individuals.}
 
-\item{data}{A data frame with one row per observed event and one terminal row per individual. Covariates used in either formula must be constant within an individual.}
+\item{data}{A data frame with one row per observed event and one terminal row per individual. Covariates used in any model formula must be constant within an individual.}
 
 \item{id}{Name of the subject identifier column.}
 
@@ -55,15 +57,17 @@ pim_control(...)
 
 \item{status}{Name of the event-code column, used with a one-sided formula. Code 0 denotes terminal censoring, code 1 denotes the terminal fatal event, and codes 2 and above denote nonfatal endpoint types. With a two-sided formula, specify this column in \code{HierSurv(time, status)}.}
 
-\item{L}{Positive numeric restriction times. The default is the 25th, 50th, and 75th sample quantiles of the individual observed death-or-censoring times. Duplicates are removed and times are sorted. Supplied times may not exceed the largest observed terminal time.}
+\item{L}{Positive numeric restriction times. The default is the 25th, 50th, and 75th sample quantiles of the individual observed death-or-censoring times. Supplied times may not exceed the largest observed terminal time.}
 
 \item{probs}{Quantile probabilities used only when \code{L = NULL}.}
 
-\item{method}{One or more of \code{"CH"}, \code{"HT"}, and \code{"DL"}, or \code{"all"}. The default is \code{"DL"}.}
+\item{method}{One or more of \code{"CHW"}, \code{"RCW"}, and \code{"CTW"}, or \code{"all"}. The default is \code{"RCW"}.}
 
 \item{link}{One or more of \code{"identity"}, \code{"logit"}, and \code{"probit"}. The centered identity link models conditional net benefit.}
 
 \item{censor_formula}{One-sided formula for a Cox model of censoring. The default uses the same right-hand side as \code{formula}. Use \code{~ 1} for an unconditional Breslow estimate, or specify different censoring predictors, for example \code{~ w}.}
+
+\item{joint_model}{A specification from \code{\link{pim_joint_model}}. It is used only for CTW. The default \code{NULL} uses a Gumbel copula with Weibull margins and the outcome predictors. Built-in joint models support one fatal and one nonfatal endpoint. CHW and RCW support additional ordered nonfatal endpoint types.}
 
 \item{priorities}{Optional vector of positive event codes ordered from highest to lowest clinical priority. It must begin with 1 for the fatal event and include every positive event code present in \code{data}. The default is increasing numerical order.}
 
@@ -78,7 +82,7 @@ pim_control(...)
 \item{...}{Named numerical and reporting options for \code{pim_control}. See Details for the options and their defaults.}
 }
 \value{
-An object of class \code{prior_pim}. Its main fields are \code{table}, a tidy coefficient and inference table; \code{fits}, the individual fitted models with covariance matrices and diagnostic information; \code{data}, the validated subject and event data; \code{L}; \code{priorities}; the formulas and call; and \code{messages}. Restriction times are stored in \code{L}, both in each coefficient or diagnostic table and in the fitted object. Numerical failures remain in the object with unavailable inference and an explanatory message. \code{pim_control} returns a control list.
+An object of class \code{prior_pim}. Its main fields are \code{table} (coefficient estimates and inference), \code{fits} (individual fitted models, covariance matrices, subject influence functions and diagnostics), \code{data}, \code{L}, \code{priorities}, \code{joint} (the CTW joint-model fit), the formulas and call, and \code{messages}. Each component of \code{fits} stores \code{influence} and \code{influence_components}. Its covariance is \code{crossprod(influence) / n^2}, with the subject influence functions centered columnwise. Numerical problems remain in the object with an explanatory message. \code{pim_control} returns a control list.
 }
 \description{
 Fits censoring-adjusted probabilistic index regression at one or more restriction times. The input contains observed long-format event histories and baseline covariates.
@@ -89,12 +93,14 @@ Fits censoring-adjusted probabilistic index regression at one or more restrictio
 
 The outcome of comparing individuals \eqn{i} and \eqn{j} is one if \eqn{i} wins, one half for a genuine tie, and zero if \eqn{i} loses. A later event time is favorable. Restricted fatal times are compared first. The next endpoint is compared only when a tie is established on every higher-priority component. If censoring prevents this determination, the pairwise comparison remains indeterminate.
 
-CH requires both individual histories through death or the restriction time. HT and DL use comparisons resolved at the earlier restricted fatal time. HT weights the centered outcome and leaves the modeled-mean term unweighted. DL weights the entire regression residual. Their untruncated population equations have the same target under the censoring assumptions.
+Complete-history weighting (CHW) requires both histories through death or the restriction time. Resolved-comparison weighting (RCW) also uses comparisons resolved at the earlier restricted fatal time. Conditional tie weighting (CTW) adds nonfatal comparisons weighted by the joint model's conditional probability that both restricted fatal times are tied. All three weight the entire regression residual. CHW and RCW require only the censoring model. CTW additionally requires a correctly specified joint model for its conditional tie probabilities.
 
 For a difference \eqn{z} between outcome model-matrix rows, write \eqn{\eta=z^T\beta}. The means are \eqn{(1+\eta)/2}, \eqn{\operatorname{expit}(\eta)}, and \eqn{\Phi(\eta)} for identity, logit, and probit, respectively. Each satisfies \eqn{h(-\eta)=1-h(\eta)}. Identity coefficients describe conditional net benefit. Estimates at an identity admissibility boundary do not receive regular Wald inference.
 
 
-Censoring is fitted separately at each restriction time with a Cox model and Breslow ties, using follow-up truncated at that time. Censoring exactly at the restriction time does not prevent observation through the restriction time. Survival weights use the left limit of the cumulative censoring hazard. The sandwich variance includes overlapping-pair dependence and the fitted baseline-hazard and censoring-coefficient martingale contributions. It is not an independent-pairs GLM variance.
+Censoring is fitted separately at each restriction time with a Cox model and Breslow ties, using follow-up truncated at that time. Censoring exactly at the restriction time does not prevent observation through the restriction time. Survival weights use the left limit of the cumulative censoring hazard. The covariance is the centered empirical covariance of the subject influence functions divided by the sample size. Each subject contribution combines the pairwise projection and the fitted censoring-coefficient and baseline-hazard martingale contributions. CTW also includes the estimated joint-model parameters. With Cox margins this includes both baseline hazard functions and their joint score contributions. Cross-covariances are retained by combining contributions before forming the covariance matrix.
+
+Joint models are fitted once to the full observed histories and shared across times and links. Conditional tie probabilities use the history restricted at the requested time. No nonfatal event after death is assigned or used. If complete follow-up or the absence of observed lower-priority comparisons makes a joint model unnecessary, CTW reduces to RCW without fitting a joint model. Standard errors condition on the specified copula and margin families.
 
 Individuals must be independent. Censoring must be independent of the event history given the specified censoring covariates, with adequate observation probabilities. Covariates are baseline variables. The interval at each selected time is pointwise. Inference treats the evaluation times as fixed and does not add uncertainty for estimating a default sample quantile. Prespecified times are preferable for confirmatory inference.
 
@@ -127,14 +133,14 @@ through the requested fits.
 # Status 0 is censoring, 1 is death, and 2 is hospitalization.
 data("hfaction", package = "gpim")
 
-# Fit DL with a logit link at the three default restriction times.
+# Fit RCW with a logit link at the three default restriction times.
 # Age is measured per 10 years and LVEF per 5 percentage points.
 fit <- gpim(
   HierSurv(time, status) ~
     treatment + I(age / 10) + sex + I(lvef / 5),
   data = hfaction,
   id = "id",
-  method = "DL",
+  method = "RCW",
   link = "logit",
   censor_formula = ~ treatment + I(age / 10) + sex
 )
@@ -152,7 +158,9 @@ plot(fit)
 }
 \references{
 Fang, X., Cao, Z., Mao, L., and Li, F. (2026). Probabilistic index models for hierarchical survival outcomes. Manuscript under review.
+
+Fang, X. and Li, F. (2026). Making censored pairs count: conditional tie weighting for win statistics with composite survival endpoints. arXiv:2605.26507. \doi{10.48550/arXiv.2605.26507}.
 }
 \seealso{
-\code{\link{HierSurv}}, \code{\link{hfaction}}, \code{\link{pim_diagnostics}}, \code{\link{summary.prior_pim}}, \code{\link{plot.prior_pim}}
+\code{\link{HierSurv}}, \code{\link{hfaction}}, \code{\link{pim_joint_model}}, \code{\link{pim_joint_fit}}, \code{\link{pim_diagnostics}}, \code{\link{summary.prior_pim}}, \code{\link{plot.prior_pim}}
 }

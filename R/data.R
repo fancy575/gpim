@@ -194,7 +194,7 @@ HierSurv <- function(time, status) {
 .pim_prepare_data <- function(formula, data, id = "id", time = "time",
                               status = "status", priorities = NULL,
                               censor_formula = NULL, recurrent = "first",
-                              na.action = "na.fail") {
+                              na.action = "na.fail", joint_formulas = list()) {
     if (!is.data.frame(data) || !nrow(data)) {
         stop("'data' must be a nonempty long-format data frame.", call. = FALSE)
     }
@@ -227,7 +227,11 @@ HierSurv <- function(time, status) {
     excluded <- unique(c(id, rr$variables))
     outcome_terms <- .pim_terms(rhs, data, excluded, "Outcome")
     censor_terms <- .pim_terms(censor_formula, data, excluded, "Censoring")
-    used <- unique(c(all.vars(outcome_terms), all.vars(censor_terms)))
+    joint_formulas <- Filter(Negate(is.null), joint_formulas)
+    joint_terms <- lapply(joint_formulas, function(f)
+        .pim_terms(f, data, excluded, "Joint model"))
+    used <- unique(c(all.vars(outcome_terms), all.vars(censor_terms),
+                     unlist(lapply(joint_terms, all.vars), use.names = FALSE)))
     # Variables in the formula must be data columns. This avoids row-length
     # ambiguities when a formula environment contains a long-format vector.
     absent <- setdiff(used, names(data))
@@ -265,6 +269,10 @@ HierSurv <- function(time, status) {
         censor_frame <- .pim_make_frame(censor_terms, subjects, "Censoring")
         complete <- stats::complete.cases(outcome_frame) &
                     stats::complete.cases(censor_frame)
+        for (tt in joint_terms) {
+            joint_frame <- .pim_make_frame(tt, subjects, "Joint model")
+            complete <- complete & stats::complete.cases(joint_frame)
+        }
         if (all(complete)) break
         if (na_method == "na.fail") {
             stop("A formula transformation produced missing values. Use na.action = 'na.omit' to remove entire individuals.",

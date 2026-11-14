@@ -112,15 +112,16 @@ pim_control <- function(...) {
 #' @title Fit Probabilistic Index Regression for Prioritized Survival Outcomes
 #' @description Fits censoring-adjusted probabilistic index regression at one or more restriction times. The input contains observed long-format event histories and baseline covariates.
 #' @param formula An R formula, for example \code{HierSurv(time, status) ~ x1 + b}. A one-sided formula such as \code{~ x1 + b} uses the columns named by \code{time} and \code{status}. Factors, interactions, and standard formula transformations are supported. A free intercept is removed because the predictors are differences between individuals.
-#' @param data A data frame with one row per observed event and one terminal row per individual. Covariates used in either formula must be constant within an individual.
+#' @param data A data frame with one row per observed event and one terminal row per individual. Covariates used in any model formula must be constant within an individual.
 #' @param id Name of the subject identifier column.
 #' @param time Name of the column containing observed event or terminal times, used with a one-sided formula. With a two-sided formula, specify this column in \code{HierSurv(time, status)}.
 #' @param status Name of the event-code column, used with a one-sided formula. Code 0 denotes terminal censoring, code 1 denotes the terminal fatal event, and codes 2 and above denote nonfatal endpoint types. With a two-sided formula, specify this column in \code{HierSurv(time, status)}.
-#' @param L Positive numeric restriction times. The default is the 25th, 50th, and 75th sample quantiles of the individual observed death-or-censoring times. Duplicates are removed and times are sorted. Supplied times may not exceed the largest observed terminal time.
+#' @param L Positive numeric restriction times. The default is the 25th, 50th, and 75th sample quantiles of the individual observed death-or-censoring times. Supplied times may not exceed the largest observed terminal time.
 #' @param probs Quantile probabilities used only when \code{L = NULL}.
-#' @param method One or more of \code{"CH"}, \code{"HT"}, and \code{"DL"}, or \code{"all"}. The default is \code{"DL"}.
+#' @param method One or more of \code{"CHW"}, \code{"RCW"}, and \code{"CTW"}, or \code{"all"}. The default is \code{"RCW"}.
 #' @param link One or more of \code{"identity"}, \code{"logit"}, and \code{"probit"}. The centered identity link models conditional net benefit.
 #' @param censor_formula One-sided formula for a Cox model of censoring. The default uses the same right-hand side as \code{formula}. Use \code{~ 1} for an unconditional Breslow estimate, or specify different censoring predictors, for example \code{~ w}.
+#' @param joint_model A specification from \code{\link{pim_joint_model}}. It is used only for CTW. The default \code{NULL} uses a Gumbel copula with Weibull margins and the outcome predictors. Built-in joint models support one fatal and one nonfatal endpoint. CHW and RCW support additional ordered nonfatal endpoint types.
 #' @param priorities Optional vector of positive event codes ordered from highest to lowest clinical priority. It must begin with 1 for the fatal event and include every positive event code present in \code{data}. The default is increasing numerical order.
 #' @param recurrent \code{"first"} uses the first event within each nonfatal type, with a warning if repeated records occur. \code{"error"} rejects repeated occurrences. This package does not implement a recurrence-count comparison.
 #' @param na.action \code{"na.fail"}, the default, rejects missing input. \code{"na.omit"} removes an entire individual's history when a required value is missing.
@@ -132,12 +133,14 @@ pim_control <- function(...) {
 #'
 #' The outcome of comparing individuals \eqn{i} and \eqn{j} is one if \eqn{i} wins, one half for a genuine tie, and zero if \eqn{i} loses. A later event time is favorable. Restricted fatal times are compared first. The next endpoint is compared only when a tie is established on every higher-priority component. If censoring prevents this determination, the pairwise comparison remains indeterminate.
 #'
-#' CH requires both individual histories through death or the restriction time. HT and DL use comparisons resolved at the earlier restricted fatal time. HT weights the centered outcome and leaves the modeled-mean term unweighted. DL weights the entire regression residual. Their untruncated population equations have the same target under the censoring assumptions.
+#' Complete-history weighting (CHW) requires both histories through death or the restriction time. Resolved-comparison weighting (RCW) also uses comparisons resolved at the earlier restricted fatal time. Conditional tie weighting (CTW) adds nonfatal comparisons weighted by the joint model's conditional probability that both restricted fatal times are tied. All three weight the entire regression residual. CHW and RCW require only the censoring model. CTW additionally requires a correctly specified joint model for its conditional tie probabilities.
 #'
 #' For a difference \eqn{z} between outcome model-matrix rows, write \eqn{\eta=z^T\beta}. The means are \eqn{(1+\eta)/2}, \eqn{\operatorname{expit}(\eta)}, and \eqn{\Phi(\eta)} for identity, logit, and probit, respectively. Each satisfies \eqn{h(-\eta)=1-h(\eta)}. Identity coefficients describe conditional net benefit. Estimates at an identity admissibility boundary do not receive regular Wald inference.
 #'
 #'
-#' Censoring is fitted separately at each restriction time with a Cox model and Breslow ties, using follow-up truncated at that time. Censoring exactly at the restriction time does not prevent observation through the restriction time. Survival weights use the left limit of the cumulative censoring hazard. The sandwich variance includes overlapping-pair dependence and the fitted baseline-hazard and censoring-coefficient martingale contributions. It is not an independent-pairs GLM variance.
+#' Censoring is fitted separately at each restriction time with a Cox model and Breslow ties, using follow-up truncated at that time. Censoring exactly at the restriction time does not prevent observation through the restriction time. Survival weights use the left limit of the cumulative censoring hazard. The covariance is the centered empirical covariance of the subject influence functions divided by the sample size. Each subject contribution combines the pairwise projection and the fitted censoring-coefficient and baseline-hazard martingale contributions. CTW also includes the estimated joint-model parameters. With Cox margins this includes both baseline hazard functions and their joint score contributions. Cross-covariances are retained by combining contributions before forming the covariance matrix.
+#'
+#' Joint models are fitted once to the full observed histories and shared across times and links. Conditional tie probabilities use the history restricted at the requested time. No nonfatal event after death is assigned or used. If complete follow-up or the absence of observed lower-priority comparisons makes a joint model unnecessary, CTW reduces to RCW without fitting a joint model. Standard errors condition on the specified copula and margin families.
 #'
 #' Individuals must be independent. Censoring must be independent of the event history given the specified censoring covariates, with adequate observation probabilities. Covariates are baseline variables. The interval at each selected time is pointwise. Inference treats the evaluation times as fixed and does not add uncertainty for estimating a default sample quantile. Prespecified times are preferable for confirmatory inference.
 #'
@@ -164,22 +167,24 @@ pim_control <- function(...) {
 #' For example, \code{control = pim_control(trace = TRUE)} prints iteration
 #' details, and \code{control = pim_control(progress = TRUE)} reports progress
 #' through the requested fits.
-#' @return An object of class \code{prior_pim}. Its main fields are \code{table}, a tidy coefficient and inference table; \code{fits}, the individual fitted models with covariance matrices and diagnostic information; \code{data}, the validated subject and event data; \code{L}; \code{priorities}; the formulas and call; and \code{messages}. Restriction times are stored in \code{L}, both in each coefficient or diagnostic table and in the fitted object. Numerical failures remain in the object with unavailable inference and an explanatory message. \code{pim_control} returns a control list.
+#' @return An object of class \code{prior_pim}. Its main fields are \code{table} (coefficient estimates and inference), \code{fits} (individual fitted models, covariance matrices, subject influence functions and diagnostics), \code{data}, \code{L}, \code{priorities}, \code{joint} (the CTW joint-model fit), the formulas and call, and \code{messages}. Each component of \code{fits} stores \code{influence} and \code{influence_components}. Its covariance is \code{crossprod(influence) / n^2}, with the subject influence functions centered columnwise. Numerical problems remain in the object with an explanatory message. \code{pim_control} returns a control list.
 #' @references Fang, X., Cao, Z., Mao, L., and Li, F. (2026). Probabilistic index models for hierarchical survival outcomes. Manuscript under review.
-#' @seealso \code{\link{HierSurv}}, \code{\link{hfaction}}, \code{\link{pim_diagnostics}}, \code{\link{summary.prior_pim}}, \code{\link{plot.prior_pim}}
+#'
+#' Fang, X. and Li, F. (2026). Making censored pairs count: conditional tie weighting for win statistics with composite survival endpoints. arXiv:2605.26507. \doi{10.48550/arXiv.2605.26507}.
+#' @seealso \code{\link{HierSurv}}, \code{\link{hfaction}}, \code{\link{pim_joint_model}}, \code{\link{pim_joint_fit}}, \code{\link{pim_diagnostics}}, \code{\link{summary.prior_pim}}, \code{\link{plot.prior_pim}}
 #' @examples
 #' # Synthetic data, with time measured in years.
 #' # Status 0 is censoring, 1 is death, and 2 is hospitalization.
 #' data("hfaction", package = "gpim")
 #'
-#' # Fit DL with a logit link at the three default restriction times.
+#' # Fit RCW with a logit link at the three default restriction times.
 #' # Age is measured per 10 years and LVEF per 5 percentage points.
 #' fit <- gpim(
 #'   HierSurv(time, status) ~
 #'     treatment + I(age / 10) + sex + I(lvef / 5),
 #'   data = hfaction,
 #'   id = "id",
-#'   method = "DL",
+#'   method = "RCW",
 #'   link = "logit",
 #'   censor_formula = ~ treatment + I(age / 10) + sex
 #' )
@@ -199,8 +204,9 @@ pim_control <- function(...) {
 #' @export
 prior_pim <- function(formula, data, id = "id", time = "time",
                       status = "status", L = NULL,
-                      probs = c(0.25, 0.5, 0.75), method = "DL",
+                      probs = c(0.25, 0.5, 0.75), method = "RCW",
                       link = "logit", censor_formula = NULL,
+                      joint_model = NULL,
                       priorities = NULL, recurrent = "first",
                       na.action = "na.fail", conf.level = 0.95,
                       control = pim_control()) {
@@ -218,21 +224,39 @@ prior_pim <- function(formula, data, id = "id", time = "time",
     if (length(unknown)) stop("Unknown control fields: ", paste(unknown, collapse = ", "))
     control <- do.call(pim_control, utils::modifyList(pim_control(), control))
     if (!is.character(method) || !length(method) || anyNA(method))
-        stop("method must be CH, HT, DL, or a vector of these.")
+        stop("method must be CHW, RCW, CTW, or a vector of these.")
     method <- unique(toupper(method))
-    if (identical(method, "ALL")) method <- c("CH", "HT", "DL")
-    if (any(!method %in% c("CH", "HT", "DL")))
-        stop("Unknown method. Choose CH, HT, DL, or all.", call. = FALSE)
+    if (identical(method, "ALL")) method <- c("CHW", "RCW", "CTW")
+    if (any(!method %in% c("CHW", "RCW", "CTW")))
+        stop("Unknown method. Choose CHW, RCW, CTW, or all.", call. = FALSE)
     if (!is.character(link) || !length(link) || anyNA(link))
         stop("link must contain one or more supported link names.", call. = FALSE)
     link <- unique(tolower(link))
     if (any(!link %in% c("identity", "logit", "probit")))
         stop("Unknown link. Choose identity, logit, or probit.",
              call. = FALSE)
+    use_ctw <- "CTW" %in% method
+    if (use_ctw && is.null(joint_model)) joint_model <- pim_joint_model()
+    if (!is.null(joint_model) && !inherits(joint_model, "pim_joint_model"))
+        stop("joint_model must be a specification from pim_joint_model().",
+             call. = FALSE)
+    joint_formulas <- if (use_ctw)
+        list(joint_model$death_formula, joint_model$nonfatal_formula) else list()
     dat <- .pim_prepare_data(formula, data, id = id, time = time,
                              status = status, priorities = priorities,
                              censor_formula = censor_formula,
-                             recurrent = recurrent, na.action = na.action)
+                             recurrent = recurrent, na.action = na.action,
+                             joint_formulas = joint_formulas)
+    if (use_ctw && ncol(dat$event_times) > 1L)
+        stop("Built-in CTW copula models support one fatal and one nonfatal ",
+             "endpoint. CHW and RCW also support further nonfatal types.",
+             call. = FALSE)
+    if (use_ctw && ncol(dat$event_times) == 1L &&
+        any(dat$death & is.finite(dat$event_times[, 1L]) &
+            dat$event_times[, 1L] >= dat$u))
+        stop("For CTW the observed nonfatal event must precede death. ",
+             "Check records with simultaneous nonfatal and fatal times.",
+             call. = FALSE)
     if (!is.null(control$start)) {
         if (length(control$start) != ncol(dat$X))
             stop("start must contain one value per model coefficient (",
@@ -266,6 +290,20 @@ prior_pim <- function(formula, data, id = "id", time = "time",
         stop("A restriction time exceeds the largest observed death-or-censoring time.",
              call. = FALSE)
     L <- sort(unique(L))
+    joint <- NULL
+    if (use_ctw) {
+        needs_joint <- any(!dat$death & dat$u < max(L)) &&
+                       any(is.finite(dat$event_times) & dat$event_times < max(L))
+        if (needs_joint) {
+            if (control$progress)
+                message("Fitting the joint model for conditional tie probabilities.")
+            joint <- tryCatch(.pim_fit_joint(dat, joint_model, control),
+                              error = identity)
+        } else {
+            joint <- list(not_required = TRUE, specification = joint_model,
+                          message = "CTW reduces to RCW for these observed histories and restriction times.")
+        }
+    }
     fits <- list()
     censoring <- list()
     messages <- character()
@@ -281,6 +319,13 @@ prior_pim <- function(formula, data, id = "id", time = "time",
             censoring[[format(L_i, digits = 16)]] <- cache$censoring
             if (is.null(censoring[[format(L_i, digits = 16)]]))
                 censoring[[format(L_i, digits = 16)]] <- cache$cox
+            if (use_ctw) {
+                cache <- tryCatch(.pim_add_ctw(cache, joint, control),
+                    error = function(e) {
+                        cache$ctw_error <- conditionMessage(e)
+                        cache
+                    })
+            }
         }
         for (lnk in link) for (m in method) {
             fit_number <- fit_number + 1L
@@ -313,13 +358,14 @@ prior_pim <- function(formula, data, id = "id", time = "time",
         }
     }
     ans <- list(call = cl, formula = formula, censor_formula = dat$censor_formula,
+                joint_model = joint_model, joint = joint,
                 n = nrow(dat$X), n_rows = dat$n_rows, L = L, probs = probs,
                 automatic_L = automatic_L, requested_L = requested_L,
                 method = method, link = link, term_names = colnames(dat$X),
                 priorities = dat$priorities, fits = fits, conf.level = conf.level,
                 table = .pim_fit_table(fits, conf.level), control = control,
                 data = dat, censoring = censoring, diagnostics = lapply(fits, `[[`, "diagnostics"),
-                messages = messages, version = "0.0.5")
+                messages = messages, version = "0.1.0")
     class(ans) <- "prior_pim"
     if (length(messages) && control$on_failure == "warn")
         warning(length(messages), " fit(s) require attention. ",

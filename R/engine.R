@@ -1,5 +1,5 @@
-# Numerical implementation of the CH, HT, and DL estimating equations.
-# All routines use observed histories.  No latent censoring time is required.
+# Numerical implementation of the CHW, RCW, and CTW estimating equations.
+# All routines use observed event and censoring histories.
 
 .pim_rowsum <- function(x, group, n) {
   x <- as.matrix(x)
@@ -184,45 +184,88 @@
        cox = cox, rho_ch = rho_ch, rho_dl = rho_dl,
        pi_ch = pi_ch, pi_dl = pi_dl,
        deriv_ch = deriv_ch, deriv_dl = deriv_dl,
-       left_u = left_u, left_s = left_s)
+       left_u = left_u, left_s = left_s, native_pairs = pairs)
+}
+
+.pim_add_ctw <- function(cache, joint, control) {
+  if (inherits(joint, "error")) {
+    cache$ctw_error <- conditionMessage(joint)
+    return(cache)
+  }
+  if (isTRUE(joint$not_required)) {
+    cache$ctw <- list(y = cache$h, weight = cache$rho_dl,
+      diagnostic_weight = cache$rho_dl, retained = cache$resolved,
+      active = cache$resolved, derivative = cache$deriv_dl,
+      left_i = cache$left_s, left_j = cache$left_s,
+      probability = cache$pi_dl, q = rep(0,cache$n),
+      factor = rep(0,cache$m), jacobian = matrix(0,cache$n,0),
+      lower = rep(FALSE,cache$m))
+    cache$joint <- joint
+    return(cache)
+  }
+  pred <- .pim_joint_predict(joint, cache$dat, cache$L)
+  q <- as.numeric(pred$probability[,1L])
+  pair <- gpim_ctw_pairs_cpp(cache$native_pairs,
+                            cache$dat$event_times[,1L], cache$L)
+  li <- integer(cache$m)
+  used <- pair$copied | pair$lower
+  li[used] <- .pim_left_index(pair$time[used],cache$cox$event_time)
+  base <- weight <- numeric(cache$m)
+  prob <- rep(NA_real_,cache$m)
+  deriv <- rep(FALSE,cache$m)
+  copied <- pair$copied
+  weight[copied] <- cache$rho_dl[copied]
+  prob[copied] <- cache$pi_dl[copied]
+  deriv[copied] <- cache$deriv_dl[copied]
+  lower <- pair$lower
+  if (any(lower)) {
+    h <- .pim_at(cache$cox$h0,li[lower]) *
+      (cache$cox$exp_eta[cache$i[lower]] + cache$cox$exp_eta[cache$j[lower]])
+    z <- .pim_probability(h,control$weight_floor)
+    base[lower] <- z$weight
+    weight[lower] <- z$weight * q[cache$i[lower]] * q[cache$j[lower]]
+    prob[lower] <- z$probability
+    deriv[lower] <- z$derivative_active
+  }
+  cache$ctw <- list(y = pair$y, weight = weight,
+    diagnostic_weight = weight, retained = weight > 0, active = weight > 0,
+    derivative = deriv, left_i = li, left_j = li, probability = prob,
+    q = q, factor = base, jacobian = pred$jacobian[[1L]], lower = lower)
+  cache$joint <- joint
+  cache
 }
 
 .pim_use <- function(cache, method) {
-  if (method == "HT") {
-    list(y = 0.5 + cache$rho_dl * (cache$h - 0.5),
-         weight = rep(1, cache$m), diagnostic_weight = cache$rho_dl,
-         retained = cache$resolved, active = rep(TRUE, cache$m),
-         derivative = cache$deriv_dl,
-         left_i = cache$left_s, left_j = cache$left_s)
-  } else if (method == "CH") {
-    list(y = cache$h, weight = cache$rho_ch,
-         diagnostic_weight = cache$rho_ch, retained = cache$ch,
-         active = cache$ch, derivative = cache$deriv_ch,
-         left_i = cache$left_u[cache$i], left_j = cache$left_u[cache$j])
-  } else {
-    list(y = cache$h, weight = cache$rho_dl,
-         diagnostic_weight = cache$rho_dl, retained = cache$resolved,
-         active = cache$resolved, derivative = cache$deriv_dl,
-         left_i = cache$left_s, left_j = cache$left_s)
+  if (method == "CTW") {
+    if (!is.null(cache$ctw_error)) stop(cache$ctw_error,call.=FALSE)
+    if (is.null(cache$ctw)) stop("CTW joint-model information is missing.",call.=FALSE)
+    return(cache$ctw)
   }
+  if (method == "CHW") {
+    return(list(y = cache$h, weight = cache$rho_ch,
+      diagnostic_weight = cache$rho_ch, retained = cache$ch,
+      active = cache$ch, derivative = cache$deriv_ch,
+      left_i = cache$left_u[cache$i], left_j = cache$left_u[cache$j],
+      probability = cache$pi_ch))
+  }
+  if (method != "RCW") stop("Unknown weighting method.",call.=FALSE)
+  list(y = cache$h, weight = cache$rho_dl,
+       diagnostic_weight = cache$rho_dl, retained = cache$resolved,
+       active = cache$resolved, derivative = cache$deriv_dl,
+       left_i = cache$left_s, left_j = cache$left_s,
+       probability = cache$pi_dl)
 }
 
 .pim_equation <- function(beta, cache, use, link, details = FALSE) {
-  eta <- drop(cache$Z %*% beta)
-  lv <- .pim_link(eta, link)
-  residual <- use$y * lv$complement - (1 - use$y) * lv$mu
-  coefficient <- use$weight * lv$multiplier * residual
-  jacobian <- use$weight *
-    (lv$multiplier_prime * residual - lv$multiplier * lv$prime)
-  score <- cache$Z * coefficient
-  ans <- list(mean_score = colSums(score) / cache$m,
-              mean_jacobian = crossprod(cache$Z, cache$Z * jacobian) / cache$m)
-  if (details) {
-    ans$score <- score
-    ans$link <- lv
-    ans$eta <- eta
-  }
-  ans
+  state <- list(n = cache$n)
+  if (details) state <- list(n = cache$n, i = cache$i, j = cache$j,
+    left_i = use$left_i, left_j = use$left_j, derivative = use$derivative,
+    risk = cache$cox$exp_eta, h0 = cache$cox$h0,
+    W = cache$cox$W, a_cum = cache$cox$a_cum,
+    q = if (is.null(use$q)) rep(0,cache$n) else use$q,
+    factor = if (is.null(use$factor)) rep(0,cache$m) else use$factor)
+  gpim_equation_cpp(cache$Z,as.numeric(beta),use$y,use$weight,
+    match(link,c("identity","logit","probit"))-1L,details,state)
 }
 
 .pim_solve <- function(cache, use, link, control) {
@@ -377,60 +420,56 @@
        iteration_history = history, start_used = start_used, message = message)
 }
 
-.pim_nuisance <- function(cache, use, score, lv, method) {
+.pim_nuisance <- function(cache, eq, use, method) {
   n <- cache$n
   p <- ncol(cache$Z)
   cox <- cache$cox
   ne <- length(cox$event_time)
-  q <- ncol(cox$W)
-  zero <- matrix(0, n, p)
-  if (!ne) return(list(total = zero, baseline = zero, coefficient = zero))
-  V <- if (method == "HT") {
-    cache$Z * (lv$multiplier * cache$rho_dl * (cache$h - 0.5))
-  } else score
-  V[!use$derivative, ] <- 0
-  left_i <- use$left_i
-  left_j <- use$left_j
-  qi <- left_i > 0L & use$derivative
-  qj <- left_j > 0L & use$derivative
-  buckets <- matrix(0, ne, p)
-  if (any(qi)) buckets <- buckets + .pim_rowsum(
-    V[qi, , drop = FALSE] * cox$exp_eta[cache$i[qi]], left_i[qi], ne)
-  if (any(qj)) buckets <- buckets + .pim_rowsum(
-    V[qj, , drop = FALSE] * cox$exp_eta[cache$j[qj]], left_j[qj], ne)
-  qstart <- .pim_cumsum(buckets / cache$m, reverse = TRUE)
-  cumulative <- .pim_cumsum(qstart * (cox$d_lambda / cox$risk0))
-  upper <- findInterval(cox$followup, cox$event_time)
-  baseline <- -.pim_at(cumulative, upper) * cox$exp_eta
-  censored <- cox$status
-  if (any(censored)) {
-    ei <- match(cox$followup[censored], cox$event_time)
-    baseline[censored, ] <- baseline[censored, , drop = FALSE] +
-      qstart[ei, , drop = FALSE] / cox$risk0[ei]
+  nc <- ncol(cox$W)
+  baseline <- coefficient <- joint <- matrix(0,n,p)
+  if (ne) {
+    qstart <- .pim_cumsum(eq$censor_buckets,reverse=TRUE)
+    cumulative <- .pim_cumsum(qstart * (cox$d_lambda/cox$risk0))
+    upper <- findInterval(cox$followup,cox$event_time)
+    baseline <- -.pim_at(cumulative,upper) * cox$exp_eta
+    ev <- cox$status
+    if (any(ev)) {
+      at <- match(cox$followup[ev],cox$event_time)
+      baseline[ev,] <- baseline[ev,,drop=FALSE] +
+        qstart[at,,drop=FALSE]/cox$risk0[at]
+    }
+    if (nc) coefficient <- cox$if_gamma %*% t(eq$censor_gamma)
   }
-  coefficient <- zero
-  if (q) {
-    vi <- (cox$W[cache$i, , drop = FALSE] * .pim_at(cox$h0, left_i) -
-             .pim_at(cox$a_cum, left_i)) * cox$exp_eta[cache$i]
-    vj <- (cox$W[cache$j, , drop = FALSE] * .pim_at(cox$h0, left_j) -
-             .pim_at(cox$a_cum, left_j)) * cox$exp_eta[cache$j]
-    qgamma <- crossprod(V, vi + vj) / cache$m
-    coefficient <- cox$if_gamma %*% t(qgamma)
+  derivative <- matrix(0,p,0)
+  if (method == "CTW" && ncol(use$jacobian)) {
+    derivative <- crossprod(eq$joint_loading,use$jacobian)
+    # The information includes copula, regression and all baseline parameters.
+    # Scores and censoring martingales remain in the same subject row.
+    if (any(derivative != 0))
+      joint <- cache$joint$scores %*%
+        solve(cache$joint$information,t(derivative))
   }
-  list(total = baseline + coefficient, baseline = baseline,
-       coefficient = coefficient)
+  list(total=baseline+coefficient+joint, baseline=baseline,
+       coefficient=coefficient,joint=joint,joint_derivative=derivative)
 }
 
 .pim_pair_table <- function(cache) {
-  data.frame(i = cache$i, j = cache$j,
+  ans <- data.frame(i = cache$i, j = cache$j,
              id_i = cache$dat$id[cache$i], id_j = cache$dat$id[cache$j],
              response = ifelse(cache$resolved, cache$h, NA_real_),
              resolved = cache$resolved, complete_history = cache$ch,
              determining_priority = cache$priority,
              ascertainment_time = ifelse(cache$resolved, cache$s, NA_real_),
-             probability_CH = cache$pi_ch, probability_DL = cache$pi_dl,
-             weight_CH = cache$rho_ch, weight_DL = cache$rho_dl,
+             probability_CHW = cache$pi_ch, probability_RCW = cache$pi_dl,
+             weight_CHW = cache$rho_ch, weight_RCW = cache$rho_dl,
              stringsAsFactors = FALSE)
+  if (!is.null(cache$ctw)) {
+    ans$response_CTW <- ifelse(cache$ctw$retained, cache$ctw$y, NA_real_)
+    ans$probability_CTW <- cache$ctw$probability
+    ans$weight_CTW <- cache$ctw$weight
+    ans$conditional_nonfatal_comparison <- cache$ctw$lower
+  }
+  ans
 }
 
 .pim_fit_cached <- function(cache, method, link, control) {
@@ -454,7 +493,7 @@
                                  dimnames = list(cache$dat$id, cn)),
               censoring = cache$cox, variance_ok = FALSE,
               L = cache$L, method = method, link = link)
-  pi <- if (method == "CH") cache$pi_ch else cache$pi_dl
+  pi <- use$probability
   dw <- use$diagnostic_weight[use$retained]
   observed_pi <- pi[use$retained]
   out$diagnostics <- list(
@@ -471,7 +510,8 @@
     n_truncated = sum(use$retained & !use$derivative),
     score_tolerance = control$tol, step_tolerance = control$step_tol,
     start_ignored = link == "identity" && !is.null(control$start),
-    censoring_adjustment = "Cox/Breslow martingale and overlapping-pair sandwich",
+    censoring_adjustment = "Cox/Breslow martingale contribution",
+    variance_method = "Centered subject influence covariance",
     identity_scale = if (link == "identity") "net benefit" else NULL)
   if (isTRUE(control$keep_pairs)) out$pairs <- .pim_pair_table(cache)
   if (any(!is.finite(solution$beta))) return(out)
@@ -479,8 +519,8 @@
   out$score_norm <- sqrt(sum(eq$mean_score^2))
   out$bread <- -eq$mean_jacobian
   dimnames(out$bread) <- list(cn, cn)
-  out$diagnostics$fitted_probability_range <- range(eq$link$mu)
-  out$diagnostics$max_abs_linear_predictor <- max(abs(eq$eta))
+  out$diagnostics$fitted_probability_range <- eq$fitted_range
+  out$diagnostics$max_abs_linear_predictor <- eq$max_abs_eta
   if (link == "identity") out$unconstrained_coefficients <- solution$unconstrained
   if (!out$converged || out$boundary) return(out)
   inv_a <- tryCatch(solve(out$bread), error = function(e) NULL)
@@ -488,51 +528,40 @@
     out$message <- paste(out$message, "The sandwich bread is singular.")
     return(out)
   }
-  # Censoring estimation contributes through the Cox/Breslow martingale terms.
-  nuisance <- .pim_nuisance(cache, use, eq$score, eq$link, method)
-  adjusted <- eq$score + (nuisance$total[cache$i, , drop = FALSE] +
-                           nuisance$total[cache$j, , drop = FALSE]) / 2
-  # Sparse correlation sandwich for pairs sharing an individual.
-  # Each pair contributes to both individuals' sums. Subtract its own
-  # cross-product once so that the diagonal pair contribution is counted once.
-  subject_sum <- .pim_rowsum(adjusted, cache$i, cache$n) +
-    .pim_rowsum(adjusted, cache$j, cache$n)
-  meat <- (crossprod(subject_sum) - crossprod(adjusted)) / cache$m^2
-  variance <- inv_a %*% meat %*% t(inv_a)
-  variance <- (variance + t(variance)) / 2
-  dimnames(variance) <- dimnames(meat) <- list(cn, cn)
-  out$vcov <- variance
-  out$meat <- meat
-  raw_sum <- .pim_rowsum(eq$score, cache$i, cache$n) +
-    .pim_rowsum(eq$score, cache$j, cache$n)
-  influence_score <- 2 * raw_sum / (cache$n - 1) + nuisance$total
-  out$influence <- influence_score %*% t(inv_a)
-  dimnames(out$influence) <- list(cache$dat$id, cn)
+  nuisance <- .pim_nuisance(cache,eq,use,method)
+  pair <- sweep(2 * eq$subject_sum/(cache$n-1L),2L,
+                2 * eq$mean_score,"-")
+  score_components <- list(pair=pair,
+    censoring_baseline=nuisance$baseline,
+    censoring_regression=nuisance$coefficient,joint=nuisance$joint)
+  out$influence_components <- lapply(score_components,function(x) {
+    v <- x %*% t(inv_a)
+    v <- sweep(v,2L,colMeans(v),"-")
+    dimnames(v) <- list(cache$dat$id,cn)
+    v
+  })
+  out$influence <- Reduce(`+`,out$influence_components)
+  score_influence <- pair + nuisance$total
+  score_influence <- sweep(score_influence,2L,colMeans(score_influence),"-")
+  out$meat <- crossprod(score_influence)/cache$n^2
+  out$vcov <- crossprod(out$influence)/cache$n^2
+  dimnames(out$meat) <- dimnames(out$vcov) <- list(cn,cn)
   out$nuisance <- nuisance
-  out$diagnostics$bread_condition <- kappa(out$bread, exact = TRUE)
+  out$diagnostics$bread_condition <- kappa(out$bread,exact=TRUE)
   out$diagnostics$nuisance_rms <- sqrt(mean(rowSums(nuisance$total^2)))
   out$diagnostics$baseline_martingale_rms <- sqrt(mean(rowSums(nuisance$baseline^2)))
   out$diagnostics$coefficient_martingale_rms <- sqrt(mean(rowSums(nuisance$coefficient^2)))
-  out$diagnostics$adjusted_score_mean <- colMeans(adjusted)
-  out$variance_ok <- all(is.finite(variance)) && all(diag(variance) >= 0)
+  out$diagnostics$joint_model_rms <- sqrt(mean(rowSums(nuisance$joint^2)))
+  out$diagnostics$adjusted_score_mean <- colMeans(score_influence)
+  out$variance_ok <- all(is.finite(out$vcov)) && all(diag(out$vcov)>=0)
   if (out$variance_ok) {
-    out$se <- sqrt(diag(variance))
-    eig <- eigen(variance, symmetric = TRUE, only.values = TRUE)$values
+    out$se <- sqrt(diag(out$vcov))
+    eig <- eigen(out$vcov,symmetric=TRUE,only.values=TRUE)$values
     out$diagnostics$covariance_eigenvalues <- eig
     out$diagnostics$covariance_positive_semidefinite <-
-      min(eig) >= -1e-10 * max(1, max(abs(eig)))
-    if (!out$diagnostics$covariance_positive_semidefinite) {
-      out$message <- paste(out$message,
-                           "The exact sparse covariance is not positive semidefinite.")
-    }
-  } else {
-    out$message <- paste(out$message,
-                         "The exact sparse sandwich has a non-finite or negative variance; Wald inference is unavailable.")
-  }
+      min(eig)>=-1e-10*max(1,max(abs(eig)))
+  } else out$message <- paste(out$message,"The subject influence covariance is not finite.")
+
   out
 }
 
-.pim_engine <- function(dat, L, method, link, control) {
-  .pim_fit_cached(.pim_prepare_horizon(dat, L, control),
-                  method, link, control)
-}

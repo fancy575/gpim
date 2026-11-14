@@ -10,7 +10,7 @@ pim_diagnostics(object, method = NULL, link = NULL, L = NULL)
 \item{object}{A fitted object returned by \code{\link{gpim}}.}
 
 \item{method}{Optional vector of fitted methods, such as
-\code{c("CH", "DL")}. \code{NULL} selects all methods.}
+\code{c("CHW", "RCW")}. \code{NULL} selects all methods.}
 
 \item{link}{Optional vector of fitted links. \code{NULL} selects all links.}
 
@@ -53,8 +53,8 @@ All four pair-count columns count unordered pairs of individuals.
 whose outcome can be determined under the hierarchical rule.
 \code{n_complete_history} counts pairs with both restricted individual
 histories observed. \code{n_retained} counts the pairs satisfying the selected
-method's observation requirement. For HT, the mean response term still uses
-all pairs, including those without an observed win or loss.
+method's observation requirement. For CTW this also includes observed
+nonfatal comparisons with a positive conditional tie weight.
 
 \code{min_probability} and \code{max_weight} summarize the observation
 probabilities and weights for retained pairs. \code{n_truncated} counts
